@@ -141,7 +141,7 @@ def evolve(
         t,
         c_ops,
         e_ops,
-        options=qt.Options(nsteps=10000),
+        options={"nsteps": 10000},
     )
 
     # <sz> to population

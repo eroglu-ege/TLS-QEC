@@ -1,0 +1,25 @@
+~/TLS-QEC/
+│
+├── README.md                          ← already there
+│
+├── requirements.txt                   ← simulations/requirements.txt
+│
+├── logs/
+│   ├── template.md                    ← already there
+│   └── 2026-06-10.md                  ← already there
+│
+├── notes/
+│   └── derivations/
+│       └── qubit_tls_theory.tex       ← the LaTeX file
+│
+├── simulations/
+│   ├── requirements.txt               ← requirements.txt
+│   ├── qubit_tls/
+│   │   ├── hamiltonian.py             ← hamiltonian.py
+│   │   ├── closed_system.py           ← closed_system.py
+│   │   ├── lindblad.py                ← lindblad.py
+│   │   └── solomon.py                 ← solomon.py
+│   └── utils/
+│       └── plotting.py                ← plotting.py
+│
+└── figures/                           ← plots get saved here automatically

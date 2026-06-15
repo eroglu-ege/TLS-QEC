@@ -97,7 +97,7 @@ def evolve(
         psi0,
         t,
         e_ops=[sz_q, sz_t],   # track <sz_q> and <sz_t>
-        options=qt.Options(nsteps=10000),
+        options={"nsteps": 10000},
     )
 
     # Convert <sz> to population: P_e = (<sz> + 1) / 2
