@@ -1,4 +1,6 @@
-qutip>=4.7
+qutip>=5.0
 numpy>=1.24
 matplotlib>=3.7
 scipy>=1.10
+h5py>=3.8
+tqdm>=4.65

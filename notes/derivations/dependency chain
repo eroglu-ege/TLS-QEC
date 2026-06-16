@@ -1,0 +1,8 @@
+hamiltonian.py          ← no dependencies
+    ↑
+closed_system.py        ← imports hamiltonian
+lindblad.py             ← imports hamiltonian
+solomon.py              ← no QuTiP, just scipy
+    ↑
+plotting.py             ← takes result dicts from any solver
+
