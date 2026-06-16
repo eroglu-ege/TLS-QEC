@@ -95,10 +95,10 @@ def evolve(
     o     = ops()
 
     result = qt.mesolve(
-        H, rho0, t, c_ops,
-        e_ops=[o['sz_q'], o['sz_t']],
-        options={"nsteps": 10000},
-    )
+    H, rho0, t, c_ops,
+    e_ops=[o['sz_q'], o['sz_t']],
+    options={"nsteps": 10000, "store_states": True},
+)
 
     P_e_q = (np.array(result.expect[0]) + 1) / 2
     P_e_t = (np.array(result.expect[1]) + 1) / 2

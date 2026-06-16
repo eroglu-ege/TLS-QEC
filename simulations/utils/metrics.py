@@ -56,24 +56,16 @@ def max_diff(t: np.ndarray, P_L: np.ndarray, P_S: np.ndarray) -> dict:
 def coherence_metrics(t: np.ndarray, coherence: np.ndarray) -> dict:
     """
     Metrics for the off-diagonal coherence |rho_{eg,ge}(t)|.
-
-    The coherence is the quantity Solomon sets to zero.
-    Large coherence → Solomon approximation is unjustified.
-
-    Returns
-    -------
-    dict:
-        'max'      : peak |rho_{eg,ge}|
-        't_peak'   : time of peak coherence
-        'integral' : total coherence weight (trapezoid rule)
     """
+    if coherence is None or len(coherence) == 0:
+        return {'max': 0.0, 't_peak': 0.0, 'integral': 0.0}
+
     idx = np.argmax(coherence)
     return {
         'max':      float(coherence[idx]),
         't_peak':   float(t[idx]),
         'integral': float(trapezoid(coherence, t)),
     }
-
 
 def fit_biexp(t: np.ndarray, P: np.ndarray) -> dict:
     """
