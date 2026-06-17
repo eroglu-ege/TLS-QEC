@@ -1,23 +1,12 @@
 """
 05_phase_diagram.py
 ===================
-Step 5: 2D phase diagram of Solomon validity in (g/Delta, g/gamma_t) space.
+2D phase diagram of Solomon validity in (g/Delta, g/gamma_t) space.
 
-This is the thesis figure. It maps the entire parameter space and shows:
-  - Where Solomon is valid (blue, low ISE)
-  - Where Solomon breaks down (red, high ISE)
-  - The breakdown boundary
+CONFIGURE HERE — change N_TH to run at finite temperature.
+Results saved with n_th label so runs don't overwrite each other.
 
-The two axes correspond to the two independent approximation conditions:
-  - g/Delta << 1 : dispersive condition
-  - g/gamma_t << 1: Markov condition on TLS coherences
-
-The diagram shows whether both conditions are needed simultaneously
-or whether satisfying one is sufficient.
-
-WARNING: This runs N_X * N_Y Lindblad+Solomon solves. With default
-settings (20x20 grid) this takes ~10-20 minutes. Reduce grid size
-for a quick test.
+WARNING: N_X * N_Y solver calls. Default 20x20 = ~15 minutes.
 
 Run from: TLS-QEC/analysis/
     python 05_phase_diagram.py
@@ -38,71 +27,64 @@ from qubit_tls.solomon  import evolve as solomon_evolve
 from utils.metrics import ISE, coherence_metrics
 from utils.io import save_phase_diagram, load_phase_diagram
 
-
-# ─── Grid settings ────────────────────────────────────────────────────────────
+# ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
+N_TH = 0.0    # thermal photon number (0.0 = T=0)
 
 FIXED = dict(
     wq      = 1.0,
     gamma_q = 0.01,
-    gamma_t = 0.01,   # gamma_t = gamma_q
+    gamma_t = 0.01,
+    n_th_q  = N_TH,
+    n_th_t  = N_TH,
 )
 
-# x-axis: g/Delta (near-resonant to dispersive)
-# We keep g fixed and vary Delta
-G_FIXED  = 0.05
-N_X      = 20
-N_Y      = 20
+G_FIXED = 0.05
+N_X     = 20
+N_Y     = 20
+T_END   = 600
+N_STEPS = 600
+# ──────────────────────────────────────────────────────────────────────────────
 
-X_RANGE  = np.logspace(-1.3, 0.3, N_X)   # g/Delta
-Y_RANGE  = np.logspace(-2,   1.3, N_Y)   # g/gamma_t
+TAG       = f"nth{N_TH:.4f}"
+DATA_PATH = f'../data/phase_diagram/phase_diagram_{TAG}.h5'
 
-T_END    = 600
-N_STEPS  = 600
-
-DATA_PATH = '../data/phase_diagram/phase_diagram.h5'
+X_RANGE = np.logspace(-1.3, 0.3, N_X)
+Y_RANGE = np.logspace(-2,   1.3, N_Y)
 
 
 def run_grid():
-    print(f"Running {N_X}x{N_Y} = {N_X*N_Y} parameter points")
-    print(f"  x-axis: g/Delta  from {X_RANGE[0]:.2f} to {X_RANGE[-1]:.2f}")
-    print(f"  y-axis: g/gamma_t from {Y_RANGE[0]:.2f} to {Y_RANGE[-1]:.2f}")
-    print(f"  Estimated time: {N_X*N_Y*0.5:.0f}–{N_X*N_Y*1.5:.0f} seconds\n")
+    print(f"Running {N_X}x{N_Y} grid  (N_TH={N_TH:.4f})")
 
     ISE_grid       = np.zeros((N_X, N_Y))
     coherence_grid = np.zeros((N_X, N_Y))
 
-    total = N_X * N_Y
-    pbar  = tqdm(total=total, desc="Phase diagram")
+    pbar = tqdm(total=N_X*N_Y, desc="Phase diagram")
 
     for i, j in product(range(N_X), range(N_Y)):
-        g_over_delta = X_RANGE[i]
-        g_over_gamma = Y_RANGE[j]
-
         g       = G_FIXED
-        delta   = g / g_over_delta
-        gamma_t = g / g_over_gamma
-
-        wt = FIXED['wq'] - delta
+        delta   = g / X_RANGE[i]
+        gamma_t = g / Y_RANGE[j]
+        wt      = FIXED['wq'] - delta
 
         try:
             res_L = lindblad_evolve(
                 wq=FIXED['wq'], wt=wt, g=g,
                 gamma_q=FIXED['gamma_q'], gamma_t=gamma_t,
+                n_th_q=N_TH, n_th_t=N_TH,
                 t_end=T_END, n_steps=N_STEPS,
             )
             res_S = solomon_evolve(
                 wq=FIXED['wq'], wt=wt, g=g,
                 gamma_q=FIXED['gamma_q'], gamma_t=gamma_t,
+                n_th_q=N_TH, n_th_t=N_TH,
                 t_end=T_END, n_steps=N_STEPS,
             )
 
-            P_S_interp = np.interp(res_L['t'], res_S['t'], res_S['P_e_q'])
-            ISE_grid[i, j] = ISE(res_L['t'], res_L['P_e_q'], P_S_interp)
+            P_S = np.interp(res_L['t'], res_S['t'], res_S['P_e_q'])
+            ISE_grid[i, j]       = ISE(res_L['t'], res_L['P_e_q'], P_S)
             coherence_grid[i, j] = coherence_metrics(
                 res_L['t'], res_L['coherence'])['max']
-
         except Exception as e:
-            print(f"\n  Error at ({i},{j}): {e}")
             ISE_grid[i, j]       = np.nan
             coherence_grid[i, j] = np.nan
 
@@ -118,80 +100,58 @@ def run_grid():
         'x_label':        'g/Delta',
         'y_label':        'g/gamma_t',
     }
-
     save_phase_diagram(grid_result, DATA_PATH)
     return grid_result
 
 
-def plot_phase_diagram(grid_result: dict):
-    X   = grid_result['x_values']
-    Y   = grid_result['y_values']
+def plot_phase_diagram(grid_result):
+    X        = grid_result['x_values']
+    Y        = grid_result['y_values']
     ISE_grid = grid_result['ISE_grid']
 
-    # Normalize: log10(ISE / ISE_min)
-    ISE_safe = np.where(ISE_grid > 0, ISE_grid, 1e-16)
-    log_ISE  = np.log10(ISE_safe)
+    log_ISE = np.log10(np.where(ISE_grid > 0, ISE_grid, 1e-16))
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
-    # ── Left: ISE heatmap ────────────────────────────────────────────────────
     ax = axes[0]
-    im = ax.pcolormesh(X, Y, log_ISE.T,
-                       cmap='RdYlBu_r',
+    im = ax.pcolormesh(X, Y, log_ISE.T, cmap='RdYlBu_r',
                        norm=mcolors.Normalize(
                            vmin=np.nanpercentile(log_ISE, 5),
-                           vmax=np.nanpercentile(log_ISE, 95)
-                       ))
-    cbar = fig.colorbar(im, ax=ax)
-    cbar.set_label('log$_{10}$(ISE)', fontsize=11)
-
+                           vmax=np.nanpercentile(log_ISE, 95)))
+    fig.colorbar(im, ax=ax).set_label('log$_{10}$(ISE)', fontsize=11)
     ax.set_xscale('log'); ax.set_yscale('log')
-    ax.set_xlabel('$g/\\Delta$',     fontsize=12)
-    ax.set_ylabel('$g/\\gamma_t$',   fontsize=12)
-    ax.set_title('Solomon validity map\n(blue=valid, red=broken)',
-                 fontsize=12)
-
-    # Diagonal g/Delta = g/gamma_t reference
-    xy = np.logspace(np.log10(min(X.min(), Y.min())),
-                     np.log10(min(X.max(), Y.max())), 50)
-    ax.plot(xy, xy, 'k--', lw=1.5, label='$g/\\Delta = g/\\gamma_t$')
+    ax.set_xlabel('$g/\\Delta$', fontsize=12)
+    ax.set_ylabel('$g/\\gamma_t$', fontsize=12)
+    ax.set_title('Solomon validity (blue=valid, red=broken)', fontsize=12)
     ax.axvline(1, color='gray', ls=':', lw=1)
     ax.axhline(1, color='gray', ls=':', lw=1)
-    ax.legend(fontsize=9)
 
-    # ── Right: coherence heatmap ─────────────────────────────────────────────
     ax2 = axes[1]
-    coh_grid = grid_result['coherence_grid']
-    im2 = ax2.pcolormesh(X, Y, np.log10(
-                         np.where(coh_grid > 0, coh_grid, 1e-16)).T,
+    coh = grid_result['coherence_grid']
+    im2 = ax2.pcolormesh(X, Y,
+                         np.log10(np.where(coh > 0, coh, 1e-16)).T,
                          cmap='Purples')
-    cbar2 = fig.colorbar(im2, ax=ax2)
-    cbar2.set_label(r'log$_{10}$(max $|\rho_{eg,ge}|$)', fontsize=11)
+    fig.colorbar(im2, ax=ax2).set_label(
+        r'log$_{10}$(max $|\rho_{eg,ge}|$)', fontsize=11)
     ax2.set_xscale('log'); ax2.set_yscale('log')
-    ax2.set_xlabel('$g/\\Delta$',   fontsize=12)
+    ax2.set_xlabel('$g/\\Delta$', fontsize=12)
     ax2.set_ylabel('$g/\\gamma_t$', fontsize=12)
-    ax2.set_title('Peak coherence\n(large = Solomon unjustified)', fontsize=12)
-    ax2.axvline(1, color='white', ls=':', lw=1)
-    ax2.axhline(1, color='white', ls=':', lw=1)
+    ax2.set_title('Peak coherence', fontsize=12)
 
     fig.suptitle(
-        rf'Phase diagram: Solomon approximation validity  '
-        rf'($g={G_FIXED}$, $\gamma_q={FIXED["gamma_q"]}$)',
-        fontsize=13
-    )
+        rf'Phase diagram  ($g={G_FIXED}$, $n_{{th}}$={N_TH:.4f})',
+        fontsize=13)
     plt.tight_layout()
-    plt.savefig('../figures/phase_diagram/phase_diagram.png',
+    plt.savefig(f'../figures/phase_diagram/phase_diagram_{TAG}.png',
                 dpi=150, bbox_inches='tight')
-    print("Figure saved → figures/phase_diagram/phase_diagram.png")
+    print(f"Figure saved → figures/phase_diagram/phase_diagram_{TAG}.png")
     plt.show()
 
 
 if __name__ == "__main__":
-    # Check if data already exists — skip computation if so
     if os.path.exists(DATA_PATH):
         print(f"Loading existing data from {DATA_PATH}")
         grid_result = load_phase_diagram(DATA_PATH)
     else:
         grid_result = run_grid()
-
     plot_phase_diagram(grid_result)
