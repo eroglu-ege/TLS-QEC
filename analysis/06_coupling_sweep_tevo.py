@@ -22,11 +22,9 @@ import qutip as qt
 
 from qubit_tls.lindblad import evolve as lindblad_evolve
 from qubit_tls.solomon  import evolve as solomon_evolve
-from utils.physics import n_thermal
 
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
-N_TH = 0.1    # thermal photon number (0.0 = T=0)
-               # e.g. N_TH = n_thermal(5.0, 0.100) for 5GHz at 100mK
+N_TH = 0.1
 
 FIXED = dict(
     wq      = 1.0,
@@ -37,8 +35,8 @@ FIXED = dict(
     n_th_t  = N_TH,
 )
 
-G_VALUES = np.linspace(0.02, 0.3, 40)   # start at g=0.02, T_rabi=157
-T_END    = 600                            # covers ~4 cycles at g=0.02
+G_VALUES = np.linspace(0.020, 0.3, 40)
+T_END    = 600
 N_STEPS  = 600
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -55,7 +53,7 @@ def run():
     t_array    = None
 
     for i, g in enumerate(tqdm(G_VALUES, desc="g sweep")):
-        psi0 = qt.tensor(qt.basis(2, 1), qt.basis(2, 0))  # |ge>
+        psi0 = qt.tensor(qt.basis(2, 1), qt.basis(2, 0))
         rho0 = qt.ket2dm(psi0)
 
         res_L = lindblad_evolve(
@@ -80,7 +78,7 @@ def run():
              g_values=G_VALUES, t=t_array)
     print(f"Data saved → data/sweeps/coupling_tevo_{TAG}.npz")
 
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
 
     for ax, grid, title in zip(
         axes,
@@ -88,18 +86,18 @@ def run():
         ['Lindblad (full quantum)', 'Solomon (rate equations)']
     ):
         im = ax.pcolormesh(t_array, G_VALUES, grid,
-                           cmap='RdYlBu_r', vmin=0, vmax=1, shading='gouraud')
-        fig.colorbar(im, ax=ax).set_label('Qubit $P_e$', fontsize=11)
-        ax.set_xlabel('Time', fontsize=12)
-        ax.set_ylabel('Coupling $g$', fontsize=12)
-        ax.set_title(title, fontsize=12)
-                   label=f"$g=\\gamma_q$={FIXED['gamma_q']}")
-                   label=f"$g=\\gamma_t$={FIXED['gamma_t']}")
+                           cmap='RdYlBu_r', vmin=0, vmax=1,
+                           shading='gouraud')
+        cbar = fig.colorbar(im, ax=ax)
+        cbar.set_label('Qubit $P_e$', fontsize=12)
+        ax.set_xlabel('Time', fontsize=13)
+        ax.set_ylabel('Coupling $g$', fontsize=13)
+        ax.set_title(title, fontsize=13)
 
     fig.suptitle(
         rf'Qubit $P_e(t)$ vs coupling $g$  '
-        f'(qubit ground, TLS excited, $n_{{th}}$={N_TH:.4f})',
-        fontsize=12
+        rf'(qubit ground, TLS excited, $n_{{th}}$={N_TH:.1f})',
+        fontsize=13
     )
     plt.tight_layout()
     plt.savefig(f'../figures/sweeps/coupling_tevo_{TAG}.png',
