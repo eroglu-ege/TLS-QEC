@@ -25,7 +25,7 @@ from qubit_tls.solomon  import evolve as solomon_evolve
 from utils.physics import n_thermal
 
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
-N_TH = 0.0    # thermal photon number (0.0 = T=0)
+N_TH = 0.1    # thermal photon number (0.0 = T=0)
                # e.g. N_TH = n_thermal(5.0, 0.100) for 5GHz at 100mK
 
 FIXED = dict(
