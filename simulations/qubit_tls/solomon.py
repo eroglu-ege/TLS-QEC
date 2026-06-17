@@ -56,59 +56,10 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils.io import save
+from utils.physics import thermal_steady_state, exchange_rate
 
 
-# ─── Thermal helpers ──────────────────────────────────────────────────────────
 
-def thermal_steady_state(n_th: float) -> float:
-    """
-    Thermal equilibrium excited-state population.
-
-    P_ss = n_th / (2*n_th + 1)
-
-    This is where each subsystem relaxes to in the absence of coupling.
-    At n_th=0: P_ss=0. At n_th->inf: P_ss->0.5.
-    """
-    return n_th / (2.0 * n_th + 1.0)
-
-
-def exchange_rate(
-    g:       float,
-    delta:   float,
-    gamma_t: float,
-    n_th_t:  float = 0.0,
-) -> float:
-    """
-    Qubit-TLS exchange rate Gamma (Lorentzian in detuning Delta).
-
-    At zero temperature:
-        Gamma = 2*g^2*gamma_t / (Delta^2 + gamma_t^2)
-
-    At finite temperature, the TLS linewidth broadens to:
-        gamma_t_eff = gamma_t * (2*n_th_t + 1)
-
-    So the full expression is:
-        Gamma = 2*g^2*gamma_t_eff / (Delta^2 + gamma_t_eff^2)
-
-    Physical effect of temperature on Gamma:
-        - Broader linewidth: TLS resonance condition relaxed
-        - At Delta=0: Gamma DECREASES with n_th (peak is lower, broader)
-        - At large Delta: Gamma can INCREASE with n_th (broader tail)
-        - The product Gamma * gamma_t_eff is conserved (spectral weight)
-
-    Parameters
-    ----------
-    g       : coupling strength
-    delta   : detuning = wq - wt
-    gamma_t : TLS relaxation rate (1/T1_t)
-    n_th_t  : thermal photon number at TLS frequency (default 0)
-
-    Returns
-    -------
-    Gamma : float, the exchange rate
-    """
-    gamma_t_eff = gamma_t * (2.0 * n_th_t + 1.0)
-    return 2.0 * g**2 * gamma_t_eff / (delta**2 + gamma_t_eff**2)
 
 
 # ─── Right-hand side ──────────────────────────────────────────────────────────
