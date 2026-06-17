@@ -19,7 +19,7 @@ def n_thermal(freq_GHz: float, temp_K: float) -> float:
     """
     if temp_K <= 0:
         return 0.0
-    x = freq_GHz * 47.99e-3 / temp_K
+    x = freq_GHz * 0.04802 / temp_K
     return 1.0 / (np.exp(x) - 1.0)
 
 
