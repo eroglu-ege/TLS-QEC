@@ -2,7 +2,7 @@
 
 **Topic:** Two-Level Systems and Quantum Error Correction  
 **Institution:** KIT, Karlsruhe  
-**Supervisors:** Mathieu, Nico (Ioan)  
+**Supervisors:** Mathieu, Nico, Ioan  
 **Started:** June 2026
 
 ---
