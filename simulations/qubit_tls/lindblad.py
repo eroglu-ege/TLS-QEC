@@ -52,55 +52,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from qubit_tls.hamiltonian import build_H, state, ops
 from utils.io import save
+from utils.physics import n_thermal, thermal_steady_state
 
 
-# ─── Thermal helpers ──────────────────────────────────────────────────────────
-
-def n_thermal(freq_GHz: float, temp_K: float) -> float:
-    """
-    Mean thermal photon number at given frequency and temperature.
-
-    n_th = 1 / (exp(hbar*omega / kB*T) - 1)
-
-    The conversion hbar/kB = 47.99 mK/GHz means:
-        hbar*omega/kB [K] = freq_GHz * 47.99e-3
-
-    Parameters
-    ----------
-    freq_GHz : float  transition frequency in GHz
-    temp_K   : float  temperature in Kelvin
-
-    Returns
-    -------
-    n_th : float  (dimensionless, >= 0)
-
-    Examples
-    --------
-    n_thermal(5.0, 0.020) -> 0.0049  (5 GHz qubit at 20 mK)
-    n_thermal(5.0, 0.100) -> 0.078   (5 GHz qubit at 100 mK)
-    n_thermal(1.0, 0.050) -> 0.181   (1 GHz TLS at 50 mK)
-    """
-    if temp_K <= 0:
-        return 0.0
-    x = freq_GHz * 47.99e-3 / temp_K  # hbar*omega / kB*T
-    return 1.0 / (np.exp(x) - 1.0)
-
-
-def thermal_steady_state(n_th: float) -> float:
-    """
-    Excited-state population at thermal equilibrium.
-
-    P_e^ss = n_th / (2*n_th + 1)
-
-    Derivation: at steady state dP/dt = 0 with decay rate gamma*(1+n_th)
-    and excitation rate gamma*n_th gives this Boltzmann result.
-
-    Limits:
-        n_th = 0   -> 0.0   (ground state at T=0)
-        n_th = 0.1 -> 0.083
-        n_th -> inf -> 0.5  (fully mixed at T=inf)
-    """
-    return n_th / (2.0 * n_th + 1.0)
 
 
 # ─── Jump operators ───────────────────────────────────────────────────────────
