@@ -35,7 +35,7 @@ FIXED = dict(
     n_th_t  = N_TH,
 )
 
-G_VALUES = np.linspace(0.020, 0.3, 40)
+G_VALUES = np.concatenate([[0.0], np.linspace(0.020, 0.3, 39)])
 T_END    = 600
 N_STEPS  = 600
 # ──────────────────────────────────────────────────────────────────────────────
