@@ -88,16 +88,13 @@ def run():
         ['Lindblad (full quantum)', 'Solomon (rate equations)']
     ):
         im = ax.pcolormesh(t_array, G_VALUES, grid,
-                           cmap='RdYlBu_r', vmin=0, vmax=1, shading='auto')
+                           cmap='RdYlBu_r', vmin=0, vmax=1, shading='gouraud')
         fig.colorbar(im, ax=ax).set_label('Qubit $P_e$', fontsize=11)
         ax.set_xlabel('Time', fontsize=12)
         ax.set_ylabel('Coupling $g$', fontsize=12)
         ax.set_title(title, fontsize=12)
-        ax.axhline(FIXED['gamma_q'], color='white', ls='--', lw=1.5,
                    label=f"$g=\\gamma_q$={FIXED['gamma_q']}")
-        ax.axhline(FIXED['gamma_t'], color='cyan', ls='--', lw=1.5,
                    label=f"$g=\\gamma_t$={FIXED['gamma_t']}")
-        ax.legend(fontsize=9, loc='upper right')
 
     fig.suptitle(
         rf'Qubit $P_e(t)$ vs coupling $g$  '
