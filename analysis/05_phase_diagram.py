@@ -28,7 +28,7 @@ from utils.metrics import ISE, coherence_metrics
 from utils.io import save_phase_diagram, load_phase_diagram
 
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
-N_TH = 0.0    # thermal photon number (0.0 = T=0)
+N_TH = 0.1    # thermal photon number (0.0 = T=0)
 
 FIXED = dict(
     wq      = 1.0,

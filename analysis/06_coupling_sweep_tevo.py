@@ -37,8 +37,8 @@ FIXED = dict(
     n_th_t  = N_TH,
 )
 
-G_VALUES = np.linspace(0.005, 0.3, 40)
-T_END    = 400
+G_VALUES = np.linspace(0.02, 0.3, 40)   # start at g=0.02, T_rabi=157
+T_END    = 600                            # covers ~4 cycles at g=0.02
 N_STEPS  = 600
 # ──────────────────────────────────────────────────────────────────────────────
 

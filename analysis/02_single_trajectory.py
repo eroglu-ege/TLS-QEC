@@ -25,7 +25,7 @@ from utils.physics import n_thermal
 from utils.io import save
 
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
-N_TH   = 0.0     # thermal photon number (0.0 = T=0)
+N_TH   = 0.1     # thermal photon number (0.0 = T=0)
                   # use n_thermal(freq_GHz, temp_K) for physical units
                   # e.g. N_TH = n_thermal(5.0, 0.100) for 5GHz at 100mK
 

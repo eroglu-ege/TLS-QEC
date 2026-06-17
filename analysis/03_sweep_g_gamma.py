@@ -24,7 +24,7 @@ from utils.metrics import ISE, max_diff, coherence_metrics, fit_biexp
 from utils.io import save_sweep
 
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
-N_TH = 0.0    # thermal photon number (0.0 = T=0)
+N_TH = 0.1    # thermal photon number (0.0 = T=0)
 
 FIXED = dict(
     wq      = 1.0,
