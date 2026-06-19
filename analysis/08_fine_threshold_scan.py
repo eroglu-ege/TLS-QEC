@@ -1,20 +1,25 @@
 """
 08_fine_threshold_scan.py
 ==========================
-High-resolution scan zoomed tightly around the threshold g = gamma_t.
+High-resolution scan zoomed tightly around the threshold g = gamma_t,
+now including TRACE DISTANCE as the rigorous significance metric
+alongside the original sensitivity-based diagnostics.
 
 PHYSICS: g = gamma_t marks where two competing timescales cross:
   - Rabi period       T_rabi = pi/g           (coherent exchange time)
   - TLS decoherence   1/gamma_t               (how long coherence survives)
 
-  g << gamma_t: TLS dephases before exchange completes -> looks incoherent
-                -> Solomon (rate equations) is exact
-  g >> gamma_t: many coherent Rabi cycles survive before dephasing
-                -> genuine quantum oscillation -> Solomon fails
-  g ~  gamma_t: crossover, both timescales comparable
+METRICS TRACKED (5 total):
+  1. L_max, S_max     : peak qubit population (Lindblad vs Solomon)
+  2. ISE               : integrated squared error
+  3. coherence_max     : peak |rho_eg,ge(t)|  (mechanistic cause)
+  4. osc_amp            : oscillation amplitude (Rabi onset signature)
+  5. D_max              : peak trace distance (rigorous significance)
 
-This script uses DENSE sampling concentrated near g/gamma_t = 1,
-with extra resolution in [0.5, 2.0] specifically.
+TWO THRESHOLDS COMPUTED (via find_two_thresholds):
+  - onset_x       : first detectable departure (10x noise floor)
+  - significant_x : first point with D > 0.05 (substantial disagreement,
+                     standard quantum information convention)
 
 Run from: TLS-QEC/analysis/
     python 08_fine_threshold_scan.py
@@ -32,6 +37,9 @@ import qutip as qt
 from qubit_tls.lindblad import evolve as lindblad_evolve
 from qubit_tls.solomon  import evolve as solomon_evolve
 from utils.metrics import ISE, coherence_metrics
+from utils.metrics_extra import (
+    trace_distance_trajectory, find_onset, find_two_thresholds
+)
 
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
 N_TH = 0.1
@@ -45,7 +53,7 @@ FIXED = dict(
     n_th_t  = N_TH,
 )
 
-# Two-tier sampling: coarse background [0.05, 10] + dense zoom [0.5, 2.0]
+# Two-tier sampling: coarse background + dense zoom around g=gamma_t
 G_OVER_GAMMA_T_COARSE = np.geomspace(0.05, 10, 30)
 G_OVER_GAMMA_T_ZOOM   = np.linspace(0.5, 2.0, 60)
 G_OVER_GAMMA_T = np.unique(np.concatenate(
@@ -78,6 +86,7 @@ def run():
     osc_amp = np.zeros(N_G)
     ise_arr = np.zeros(N_G)
     coh_max = np.zeros(N_G)
+    D_max   = np.zeros(N_G)
 
     psi0 = qt.tensor(qt.basis(2, 1), qt.basis(2, 0))
     rho0 = qt.ket2dm(psi0)
@@ -92,18 +101,41 @@ def run():
         S_max[i]   = res_S['P_e_q'].max()
         osc_amp[i] = res_L['P_e_q'].max() - res_L['P_e_q'].min()
 
-        P_S_interp = np.interp(res_L['t'], res_S['t'], res_S['P_e_q'])
-        ise_arr[i] = ISE(res_L['t'], res_L['P_e_q'], P_S_interp)
+        P_S_q_interp = np.interp(res_L['t'], res_S['t'], res_S['P_e_q'])
+        P_S_t_interp = np.interp(res_L['t'], res_S['t'], res_S['P_e_t'])
+
+        ise_arr[i] = ISE(res_L['t'], res_L['P_e_q'], P_S_q_interp)
         coh_max[i] = coherence_metrics(res_L['t'], res_L['coherence'])['max']
+
+        D = trace_distance_trajectory(res_L['states'], P_S_q_interp, P_S_t_interp)
+        D_max[i] = D.max()
 
     np.savez(f'../data/sweeps/fine_threshold_{TAG}.npz',
              g_values=G_VALUES, g_over_gamma_t=G_OVER_GAMMA_T,
              L_max=L_max, S_max=S_max,
-             osc_amp=osc_amp, ISE=ise_arr, coherence_max=coh_max)
+             osc_amp=osc_amp, ISE=ise_arr, coherence_max=coh_max,
+             D_max=D_max)
     print(f"\nData saved → data/sweeps/fine_threshold_{TAG}.npz")
 
-    # ── Figure ──────────────────────────────────────────────────────────────────
-    fig, axes = plt.subplots(2, 2, figsize=(13, 9))
+    # ── Compute the two-number thesis claim using trace distance ───────────────
+    thresholds = find_two_thresholds(
+        G_OVER_GAMMA_T, D_max,
+        onset_multiplier=10.0,
+        significance_level=0.05,   # D > 0.05 = substantial disagreement
+    )
+    print("\n" + "="*55)
+    print("TWO-THRESHOLD RESULT (trace distance based)")
+    print("="*55)
+    onset = thresholds['onset']
+    print(f"  Baseline D (noise floor): {onset['baseline']:.5f}")
+    print(f"  Sensitivity onset (10x baseline): "
+          f"g/γt = {onset['onset_x']}")
+    print(f"  Significance threshold (D>0.05): "
+          f"g/γt = {thresholds['significant_x']}")
+    print("="*55)
+
+    # ── Figure: 5-panel diagnostic ──────────────────────────────────────────────
+    fig, axes = plt.subplots(2, 3, figsize=(17, 9))
 
     ax = axes[0, 0]
     ax.plot(G_OVER_GAMMA_T, L_max, 'o-', lw=1.5, ms=3, label='Lindblad max $P_q$')
@@ -111,7 +143,7 @@ def run():
     ax.axvline(1.0, color='red', ls='--', lw=1.5, label='$g=\\gamma_t$')
     ax.set_xscale('log')
     ax.set_xlabel('$g/\\gamma_t$'); ax.set_ylabel('Peak qubit population')
-    ax.set_title('Peak population vs coupling'); ax.legend(fontsize=9)
+    ax.set_title('Peak population vs coupling'); ax.legend(fontsize=8)
 
     ax = axes[0, 1]
     ax.plot(G_OVER_GAMMA_T, ise_arr, 'o-', lw=1.5, ms=3, color='black')
@@ -120,56 +152,61 @@ def run():
     ax.set_xlabel('$g/\\gamma_t$'); ax.set_ylabel('ISE')
     ax.set_title('Integrated Squared Error')
 
-    ax = axes[1, 0]
+    ax = axes[0, 2]
     ax.plot(G_OVER_GAMMA_T, coh_max, 'o-', lw=1.5, ms=3, color='purple')
     ax.axvline(1.0, color='red', ls='--', lw=1.5)
     ax.set_xscale('log')
     ax.set_xlabel('$g/\\gamma_t$'); ax.set_ylabel('Peak coherence')
     ax.set_title('Coherence buildup')
 
-    ax = axes[1, 1]
+    ax = axes[1, 0]
     ax.plot(G_OVER_GAMMA_T, osc_amp, 'o-', lw=1.5, ms=3, color='darkgreen')
     ax.axvline(1.0, color='red', ls='--', lw=1.5)
     ax.set_xscale('log')
     ax.set_xlabel('$g/\\gamma_t$'); ax.set_ylabel('Oscillation amplitude')
-    ax.set_title('Rabi oscillation onset (Lindblad)')
+    ax.set_title('Rabi oscillation onset')
+
+    # NEW: trace distance panel with both thresholds marked
+    ax = axes[1, 1]
+    ax.plot(G_OVER_GAMMA_T, D_max, 'o-', lw=2, ms=3, color='darkred')
+    ax.axvline(1.0, color='red', ls='--', lw=1.5, label='$g=\\gamma_t$')
+    if onset['onset_x'] is not None:
+        ax.axvline(onset['onset_x'], color='blue', ls=':', lw=1.5,
+                  label=f"onset: {onset['onset_x']:.3f}")
+    if thresholds['significant_x'] is not None:
+        ax.axvline(thresholds['significant_x'], color='green', ls=':', lw=1.5,
+                  label=f"significant: {thresholds['significant_x']:.3f}")
+    ax.axhline(0.05, color='gray', ls=':', lw=1, alpha=0.5)
+    ax.set_xscale('log')
+    ax.set_xlabel('$g/\\gamma_t$'); ax.set_ylabel('Max trace distance $D$')
+    ax.set_title('Trace distance (rigorous significance)')
+    ax.legend(fontsize=7)
+
+    # Summary text panel
+    ax = axes[1, 2]
+    ax.axis('off')
+    summary = (
+        f"TWO-THRESHOLD SUMMARY\n\n"
+        f"Sensitivity onset:\n"
+        f"  g/γt = {onset['onset_x']:.4f}\n"
+        f"  (10x noise floor, D-based)\n\n"
+        f"Significance threshold:\n"
+        f"  g/γt = {thresholds['significant_x']}\n"
+        f"  (D > 0.05, substantial)\n\n"
+        f"Baseline D: {onset['baseline']:.5f}\n"
+        f"Max D in scan: {D_max.max():.4f}"
+    )
+    ax.text(0.05, 0.95, summary, transform=ax.transAxes,
+           fontsize=11, verticalalignment='top', fontfamily='monospace')
 
     fig.suptitle(
-        rf'Fine threshold scan around $g=\gamma_t$  '
-        rf'(zoom: 60 pts in [0.5,2.0]), $n_{{th}}$={N_TH}',
+        rf'Fine threshold scan with trace distance, $n_{{th}}$={N_TH}',
         fontsize=14
     )
     plt.tight_layout()
     plt.savefig(f'../figures/sweeps/fine_threshold_{TAG}.png',
                 dpi=150, bbox_inches='tight')
     print(f"Figure saved → figures/sweeps/fine_threshold_{TAG}.png")
-
-    # ── Zoomed-in second figure: just the [0.5, 2.0] region ────────────────────
-    zoom_mask = (G_OVER_GAMMA_T >= 0.5) & (G_OVER_GAMMA_T <= 2.0)
-    fig2, ax = plt.subplots(figsize=(8, 5))
-    ax.plot(G_OVER_GAMMA_T[zoom_mask], L_max[zoom_mask], 'o-', lw=2,
-           label='Lindblad max $P_q$')
-    ax.plot(G_OVER_GAMMA_T[zoom_mask], S_max[zoom_mask], 's-', lw=2,
-           label='Solomon max $P_q$')
-    ax.axvline(1.0, color='red', ls='--', lw=1.5, label='$g=\\gamma_t$')
-    ax.set_xlabel('$g/\\gamma_t$', fontsize=12)
-    ax.set_ylabel('Peak qubit population', fontsize=12)
-    ax.set_title('Zoom: threshold region [0.5, 2.0]', fontsize=13)
-    ax.legend(fontsize=10)
-    plt.tight_layout()
-    plt.savefig(f'../figures/sweeps/fine_threshold_zoom_{TAG}.png',
-                dpi=150, bbox_inches='tight')
-    print(f"Zoom figure saved → figures/sweeps/fine_threshold_zoom_{TAG}.png")
-
-    diff_pct = (L_max - S_max) / S_max * 100
-    above5 = G_OVER_GAMMA_T[diff_pct > 5]
-    if len(above5) > 0:
-        print(f"\n5% divergence threshold: g/gamma_t = {above5[0]:.4f}")
-    sign_change = np.where(np.diff(np.sign(L_max - S_max)))[0]
-    if len(sign_change) > 0:
-        print(f"L_max = S_max crossing at g/gamma_t ≈ "
-              f"{G_OVER_GAMMA_T[sign_change[0]]:.4f}")
-
     plt.show()
 
 
