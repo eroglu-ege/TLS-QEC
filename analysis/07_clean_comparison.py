@@ -29,21 +29,23 @@ from qubit_tls.solomon  import evolve as solomon_evolve
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
 N_TH = 0.1
 
-FIXED = dict(
+# Build consistent params from physical timescales.
+# T2=None means no pure dephasing (T2 = 2*T1, Lindblad limit).
+# Set T2_q < 2*T1_q to add realistic pure dephasing.
+PARAMS = make_params(
     wq      = 1.0,
-    wt      = 1.0,     # resonant
-    gamma_q = 0.01,
-    gamma_t = 0.005,
+    wt      = 1.0,
+    gamma_q = 0.01,    # T1_q = 100
+    gamma_t = 0.005,   # T1_t = 200
+    T2_q    = None,    # None => T2 = 2*T1 (no pure dephasing)
+    T2_t    = None,    # None => T2 = 2*T1 (no pure dephasing)
     n_th_q  = N_TH,
     n_th_t  = N_TH,
 )
-
-# Hand-picked g values spanning weak -> strong coupling relative to gamma_t=0.005
-G_VALUES = [0.001, 0.01, 0.1]   # g/gamma_t = 0.2, 2, 20
-
-T_END   = 1500
-N_STEPS = 1000
-# ──────────────────────────────────────────────────────────────────────────────
+FIXED = {k: PARAMS[k] for k in
+         ["wq","wt","gamma_q","gamma_t","gamma_phi_q","gamma_phi_t",
+          "n_th_q","n_th_t"]}
+# ──────────────────────────────────────────────────────────────────────────
 
 TAG = f"nth{N_TH:.4f}"
 

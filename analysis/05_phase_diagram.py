@@ -25,25 +25,29 @@ from itertools import product
 from qubit_tls.lindblad import evolve as lindblad_evolve
 from qubit_tls.solomon  import evolve as solomon_evolve
 from utils.metrics import ISE, coherence_metrics
-from utils.io import save_phase_diagram, load_phase_diagram
+from utils.io import save
+from utils.physics import make_params, n_thermal_phase_diagram, load_phase_diagram
 
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
-N_TH = 0.1    # thermal photon number (0.0 = T=0)
+N_TH = 0.1
 
-FIXED = dict(
+# Build consistent params from physical timescales.
+# T2=None means no pure dephasing (T2 = 2*T1, Lindblad limit).
+# Set T2_q < 2*T1_q to add realistic pure dephasing.
+PARAMS = make_params(
     wq      = 1.0,
-    gamma_q = 0.01,
-    gamma_t = 0.01,
+    wt      = 1.0,
+    gamma_q = 0.01,    # T1_q = 100
+    gamma_t = 0.005,   # T1_t = 200
+    T2_q    = None,    # None => T2 = 2*T1 (no pure dephasing)
+    T2_t    = None,    # None => T2 = 2*T1 (no pure dephasing)
     n_th_q  = N_TH,
     n_th_t  = N_TH,
 )
-
-G_FIXED = 0.05
-N_X     = 20
-N_Y     = 20
-T_END   = 600
-N_STEPS = 600
-# ──────────────────────────────────────────────────────────────────────────────
+FIXED = {k: PARAMS[k] for k in
+         ["wq","wt","gamma_q","gamma_t","gamma_phi_q","gamma_phi_t",
+          "n_th_q","n_th_t"]}
+# ──────────────────────────────────────────────────────────────────────────
 
 TAG       = f"nth{N_TH:.4f}"
 DATA_PATH = f'../data/phase_diagram/phase_diagram_{TAG}.h5'

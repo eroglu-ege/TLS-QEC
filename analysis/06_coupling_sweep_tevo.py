@@ -37,28 +37,23 @@ from qubit_tls.solomon  import evolve as solomon_evolve
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
 N_TH = 0.1
 
-FIXED = dict(
+# Build consistent params from physical timescales.
+# T2=None means no pure dephasing (T2 = 2*T1, Lindblad limit).
+# Set T2_q < 2*T1_q to add realistic pure dephasing.
+PARAMS = make_params(
     wq      = 1.0,
-    wt      = 1.0,     # resonant
-    gamma_q = 0.01,
-    gamma_t = 0.005,
+    wt      = 1.0,
+    gamma_q = 0.01,    # T1_q = 100
+    gamma_t = 0.005,   # T1_t = 200
+    T2_q    = None,    # None => T2 = 2*T1 (no pure dephasing)
+    T2_t    = None,    # None => T2 = 2*T1 (no pure dephasing)
     n_th_q  = N_TH,
     n_th_t  = N_TH,
 )
-
-# Log-spaced g, deep into BOTH regimes:
-#   g/gamma_t = 0.001  -> deep Solomon-valid regime
-#   g/gamma_t = 1000   -> deep Rabi (Solomon-invalid) regime
-N_G = 60
-G_OVER_GAMMA_T = np.logspace(-3, 1.7, N_G)
-G_VALUES       = G_OVER_GAMMA_T * FIXED['gamma_t']
-
-# Time axis in units of 1/gamma_t — physical decoherence timescale,
-# long enough to resolve slow Rabi cycles at the smallest g
-T_END_UNITS = 50          # in units of 1/gamma_t
-T_END       = T_END_UNITS / FIXED['gamma_t']
-N_STEPS     = 800
-# ──────────────────────────────────────────────────────────────────────────────
+FIXED = {k: PARAMS[k] for k in
+         ["wq","wt","gamma_q","gamma_t","gamma_phi_q","gamma_phi_t",
+          "n_th_q","n_th_t"]}
+# ──────────────────────────────────────────────────────────────────────────
 
 TAG = f"nth{N_TH:.4f}"
 

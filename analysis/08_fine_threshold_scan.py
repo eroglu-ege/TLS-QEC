@@ -44,28 +44,23 @@ from utils.metrics_extra import (
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
 N_TH = 0.1
 
-FIXED = dict(
+# Build consistent params from physical timescales.
+# T2=None means no pure dephasing (T2 = 2*T1, Lindblad limit).
+# Set T2_q < 2*T1_q to add realistic pure dephasing.
+PARAMS = make_params(
     wq      = 1.0,
     wt      = 1.0,
-    gamma_q = 0.01,
-    gamma_t = 0.005,
+    gamma_q = 0.01,    # T1_q = 100
+    gamma_t = 0.005,   # T1_t = 200
+    T2_q    = None,    # None => T2 = 2*T1 (no pure dephasing)
+    T2_t    = None,    # None => T2 = 2*T1 (no pure dephasing)
     n_th_q  = N_TH,
     n_th_t  = N_TH,
 )
-
-# Two-tier sampling: coarse background + dense zoom around g=gamma_t
-G_OVER_GAMMA_T_COARSE = np.geomspace(0.05, 10, 30)
-G_OVER_GAMMA_T_ZOOM   = np.linspace(0.5, 2.0, 60)
-G_OVER_GAMMA_T = np.unique(np.concatenate(
-    [G_OVER_GAMMA_T_COARSE, G_OVER_GAMMA_T_ZOOM]))
-G_OVER_GAMMA_T.sort()
-
-G_VALUES = G_OVER_GAMMA_T * FIXED['gamma_t']
-N_G      = len(G_VALUES)
-
-T_END   = 4000
-N_STEPS = 1200
-# ──────────────────────────────────────────────────────────────────────────────
+FIXED = {k: PARAMS[k] for k in
+         ["wq","wt","gamma_q","gamma_t","gamma_phi_q","gamma_phi_t",
+          "n_th_q","n_th_t"]}
+# ──────────────────────────────────────────────────────────────────────────
 
 TAG = f"nth{N_TH:.4f}"
 
@@ -118,8 +113,13 @@ def run():
     print(f"\nData saved → data/sweeps/fine_threshold_{TAG}.npz")
 
     # ── Compute the two-number thesis claim using trace distance ───────────────
+    # Restrict baseline to the genuinely flat region (g/gt < 0.1), since
+    # divergence is already underway by g/gt ~ 0.07-0.3 per earlier scans —
+    # including those points in the baseline would inflate the noise floor.
+    baseline_mask = G_OVER_GAMMA_T < 0.1
     thresholds = find_two_thresholds(
         G_OVER_GAMMA_T, D_max,
+        baseline_mask=baseline_mask,
         onset_multiplier=10.0,
         significance_level=0.05,   # D > 0.05 = substantial disagreement
     )
@@ -128,10 +128,10 @@ def run():
     print("="*55)
     onset = thresholds['onset']
     print(f"  Baseline D (noise floor): {onset['baseline']:.5f}")
-    print(f"  Sensitivity onset (10x baseline): "
-          f"g/γt = {onset['onset_x']}")
-    print(f"  Significance threshold (D>0.05): "
-          f"g/γt = {thresholds['significant_x']}")
+    onset_print = f"{onset['onset_x']:.4f}" if onset['onset_x'] is not None else "not found in scanned range"
+    sig_print = f"{thresholds['significant_x']:.4f}" if thresholds['significant_x'] is not None else "not found in scanned range"
+    print(f"  Sensitivity onset (10x baseline): g/γt = {onset_print}")
+    print(f"  Significance threshold (D>0.05): g/γt = {sig_print}")
     print("="*55)
 
     # ── Figure: 5-panel diagnostic ──────────────────────────────────────────────
@@ -185,13 +185,15 @@ def run():
     # Summary text panel
     ax = axes[1, 2]
     ax.axis('off')
+    onset_str = f"{onset['onset_x']:.4f}" if onset['onset_x'] is not None else "not found"
+    sig_str = f"{thresholds['significant_x']:.4f}" if thresholds['significant_x'] is not None else "not found"
     summary = (
         f"TWO-THRESHOLD SUMMARY\n\n"
         f"Sensitivity onset:\n"
-        f"  g/γt = {onset['onset_x']:.4f}\n"
+        f"  g/γt = {onset_str}\n"
         f"  (10x noise floor, D-based)\n\n"
         f"Significance threshold:\n"
-        f"  g/γt = {thresholds['significant_x']}\n"
+        f"  g/γt = {sig_str}\n"
         f"  (D > 0.05, substantial)\n\n"
         f"Baseline D: {onset['baseline']:.5f}\n"
         f"Max D in scan: {D_max.max():.4f}"

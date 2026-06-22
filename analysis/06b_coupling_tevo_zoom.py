@@ -30,25 +30,23 @@ from qubit_tls.solomon  import evolve as solomon_evolve
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
 N_TH = 0.1
 
-FIXED = dict(
+# Build consistent params from physical timescales.
+# T2=None means no pure dephasing (T2 = 2*T1, Lindblad limit).
+# Set T2_q < 2*T1_q to add realistic pure dephasing.
+PARAMS = make_params(
     wq      = 1.0,
     wt      = 1.0,
-    gamma_q = 0.01,
-    gamma_t = 0.005,
+    gamma_q = 0.01,    # T1_q = 100
+    gamma_t = 0.005,   # T1_t = 200
+    T2_q    = None,    # None => T2 = 2*T1 (no pure dephasing)
+    T2_t    = None,    # None => T2 = 2*T1 (no pure dephasing)
     n_th_q  = N_TH,
     n_th_t  = N_TH,
 )
-
-# Zoomed window: g/gamma_t in [0.1, 1.1], linear spacing (narrow range)
-N_G = 50
-G_OVER_GAMMA_T = np.linspace(0.1, 1.1, N_G)
-G_VALUES       = G_OVER_GAMMA_T * FIXED['gamma_t']
-
-# Time: long enough to see steady state even at the smallest g in range
-T_END_UNITS = 30          # in units of 1/gamma_t
-T_END       = T_END_UNITS / FIXED['gamma_t']
-N_STEPS     = 1000        # high enough to resolve g/gamma_t=1.1 cleanly
-# ──────────────────────────────────────────────────────────────────────────────
+FIXED = {k: PARAMS[k] for k in
+         ["wq","wt","gamma_q","gamma_t","gamma_phi_q","gamma_phi_t",
+          "n_th_q","n_th_t"]}
+# ──────────────────────────────────────────────────────────────────────────
 
 TAG = f"nth{N_TH:.4f}"
 
