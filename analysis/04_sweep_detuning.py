@@ -1,9 +1,9 @@
 """
 04_sweep_detuning.py
 ====================
-Sweep g/Delta at fixed gamma_t.
+Sweep g/Delta at fixed gamma_t and g.
 
-CONFIGURE HERE — change N_TH to run at finite temperature.
+CONFIGURE HERE — change N_TH, T2_q, T2_t as needed.
 
 Run from: TLS-QEC/analysis/
     python 04_sweep_detuning.py
@@ -21,35 +21,39 @@ from tqdm import tqdm
 from qubit_tls.lindblad import evolve as lindblad_evolve
 from qubit_tls.solomon  import evolve as solomon_evolve
 from utils.metrics import ISE, max_diff, coherence_metrics, fit_biexp
-from utils.io import save
-from utils.physics import make_params, n_thermal_sweep
+from utils.io import save_sweep
+from utils.physics import make_params
 
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
 N_TH = 0.1
 
-# Build consistent params from physical timescales.
-# T2=None means no pure dephasing (T2 = 2*T1, Lindblad limit).
-# Set T2_q < 2*T1_q to add realistic pure dephasing.
 PARAMS = make_params(
     wq      = 1.0,
     wt      = 1.0,
-    gamma_q = 0.01,    # T1_q = 100
-    gamma_t = 0.005,   # T1_t = 200
-    T2_q    = None,    # None => T2 = 2*T1 (no pure dephasing)
-    T2_t    = None,    # None => T2 = 2*T1 (no pure dephasing)
+    gamma_q = 0.01,
+    gamma_t = 0.005,
+    T2_q    = None,    # None => T2 = 2*T1
+    T2_t    = None,
     n_th_q  = N_TH,
     n_th_t  = N_TH,
 )
 FIXED = {k: PARAMS[k] for k in
          ["wq","wt","gamma_q","gamma_t","gamma_phi_q","gamma_phi_t",
           "n_th_q","n_th_t"]}
-# ──────────────────────────────────────────────────────────────────────────
 
-TAG = f"nth{N_TH:.4f}"
+G_FIXED      = 0.05
+G_OVER_DELTA = np.logspace(-1.3, 0.3, 40)
+DELTA_VALUES = G_FIXED / G_OVER_DELTA
+T_END        = 800
+N_STEPS      = 800
+TAG          = f"nth{N_TH:.4f}_T2q{PARAMS['T2_q']:.0f}_T2t{PARAMS['T2_t']:.0f}"
+# ──────────────────────────────────────────────────────────────────────────────
 
 
 def run_sweep():
-    print(f"Sweeping g/Delta  (N_TH={N_TH:.4f})")
+    print(f"Sweeping g/Delta  (N_TH={N_TH:.4f}, g={G_FIXED})")
+    print(f"  T1_q={PARAMS['T1_q']:.0f}  T2_q={PARAMS['T2_q']:.0f}  "
+          f"T1_t={PARAMS['T1_t']:.0f}  T2_t={PARAMS['T2_t']:.0f}\n")
 
     ise_arr  = []
     maxd_arr = []
@@ -60,8 +64,8 @@ def run_sweep():
     g2S_arr  = []
 
     for delta in tqdm(DELTA_VALUES, desc="Sweep"):
-        wt = FIXED['wq'] - delta
-        params = {**FIXED, 'wt': wt}
+        wt     = FIXED['wq'] - delta
+        params = {**FIXED, 'wt': wt, 'g': G_FIXED}
 
         res_L = lindblad_evolve(**params, t_end=T_END, n_steps=N_STEPS)
         res_S = solomon_evolve(**params,  t_end=T_END, n_steps=N_STEPS)
@@ -93,6 +97,7 @@ def run_sweep():
     }
 
     save_sweep(sweep, f'../data/sweeps/sweep_detuning_{TAG}.h5')
+    print(f"Saved → data/sweeps/sweep_detuning_{TAG}.h5")
 
     fig = plt.figure(figsize=(16, 5))
     gs  = gridspec.GridSpec(1, 4, figure=fig, wspace=0.4)
@@ -129,12 +134,13 @@ def run_sweep():
 
     fig.suptitle(
         rf'Solomon breakdown vs $g/\Delta$  '
-        rf'($g={FIXED["g"]}$, $n_{{th}}$={N_TH:.4f})',
+        rf'($g={G_FIXED}$, $n_{{th}}$={N_TH:.3f}, '
+        rf'$T_2^q$={PARAMS["T2_q"]:.0f}, $T_2^t$={PARAMS["T2_t"]:.0f})',
         fontsize=13
     )
     plt.savefig(f'../figures/sweeps/sweep_detuning_{TAG}.png',
                 dpi=150, bbox_inches='tight')
-    print(f"\nFigure saved → figures/sweeps/sweep_detuning_{TAG}.png")
+    print(f"Figure saved → figures/sweeps/sweep_detuning_{TAG}.png")
     plt.show()
 
 

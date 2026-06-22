@@ -1,15 +1,10 @@
 """
 07_clean_comparison.py
 =======================
-Clean side-by-side comparison: P_q(t) and P_t(t), Lindblad vs Solomon,
-at a few hand-picked g values spanning weak to strong coupling.
+Clean side-by-side: P_q(t) and P_t(t), Lindblad vs Solomon,
+at hand-picked g values spanning weak to strong coupling.
 
-No fitting, no colormap — just direct population curves so you can
-see the Solomon breakdown with your own eyes.
-
-Initial state: qubit ground (P_q=0), TLS excited (P_t=1).
-
-CONFIGURE HERE — pick g values and N_TH.
+Initial state: qubit ground, TLS excited.
 
 Run from: TLS-QEC/analysis/
     python 07_clean_comparison.py
@@ -25,43 +20,46 @@ import qutip as qt
 
 from qubit_tls.lindblad import evolve as lindblad_evolve
 from qubit_tls.solomon  import evolve as solomon_evolve
+from utils.physics import make_params
 
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
 N_TH = 0.1
 
-# Build consistent params from physical timescales.
-# T2=None means no pure dephasing (T2 = 2*T1, Lindblad limit).
-# Set T2_q < 2*T1_q to add realistic pure dephasing.
 PARAMS = make_params(
     wq      = 1.0,
     wt      = 1.0,
-    gamma_q = 0.01,    # T1_q = 100
-    gamma_t = 0.005,   # T1_t = 200
-    T2_q    = None,    # None => T2 = 2*T1 (no pure dephasing)
-    T2_t    = None,    # None => T2 = 2*T1 (no pure dephasing)
+    gamma_q = 0.01,
+    gamma_t = 0.005,
+    T2_q    = None,
+    T2_t    = None,
     n_th_q  = N_TH,
     n_th_t  = N_TH,
 )
 FIXED = {k: PARAMS[k] for k in
          ["wq","wt","gamma_q","gamma_t","gamma_phi_q","gamma_phi_t",
           "n_th_q","n_th_t"]}
-# ──────────────────────────────────────────────────────────────────────────
 
-TAG = f"nth{N_TH:.4f}"
+# Hand-picked g values: weak, intermediate, strong coupling
+G_VALUES = [0.001, 0.005, 0.01, 0.1]   # g/gamma_t = 0.2, 1, 2, 20
+
+T_END   = 1500
+N_STEPS = 1000
+TAG     = f"nth{N_TH:.4f}_T2q{PARAMS['T2_q']:.0f}_T2t{PARAMS['T2_t']:.0f}"
+# ──────────────────────────────────────────────────────────────────────────────
 
 
 def run():
     n = len(G_VALUES)
     fig, axes = plt.subplots(2, n, figsize=(5*n, 8), sharex=True)
 
-    psi0 = qt.tensor(qt.basis(2, 1), qt.basis(2, 0))  # |ge>: qubit ground, TLS excited
+    psi0 = qt.tensor(qt.basis(2, 1), qt.basis(2, 0))  # |ge>
     rho0 = qt.ket2dm(psi0)
 
-    print(f"N_TH = {N_TH:.4f}   gamma_q={FIXED['gamma_q']}   gamma_t={FIXED['gamma_t']}\n")
+    print(f"N_TH={N_TH:.4f}  T2_q={PARAMS['T2_q']:.0f}  T2_t={PARAMS['T2_t']:.0f}\n")
 
     for col, g in enumerate(G_VALUES):
         ratio = g / FIXED['gamma_t']
-        print(f"Running g={g:.4f}  (g/gamma_t = {ratio:.2f}) ...")
+        print(f"Running g={g:.4f}  (g/gamma_t={ratio:.2f})...")
 
         res_L = lindblad_evolve(**FIXED, g=g, t_end=T_END, n_steps=N_STEPS,
                                 rho0=rho0)
@@ -70,34 +68,33 @@ def run():
 
         t = res_L['t']
 
-        # ── Top row: qubit population ───────────────────────────────────────────
         ax = axes[0, col]
         ax.plot(t, res_L['P_e_q'], lw=2.2, color='C0', label='Lindblad')
         ax.plot(t, res_S['P_e_q'], lw=2.2, color='C1', ls='--', label='Solomon')
         ax.axhline(res_L['P_e_q_ss'], color='gray', ls=':', lw=1,
-                  label=f'$P_{{ss}}$={res_L["P_e_q_ss"]:.3f}')
-        ax.set_title(rf'$g={g:.3f}$  ($g/\gamma_t$={ratio:.2g})', fontsize=13)
-        ax.set_ylabel('Qubit $P_e$', fontsize=12)
+                  label=f"$P_{{ss}}$={res_L['P_e_q_ss']:.3f}")
+        ax.set_title(rf'$g={g:.3f}$  ($g/\gamma_t$={ratio:.1f})', fontsize=12)
+        ax.set_ylabel('Qubit $P_e$', fontsize=11)
         ax.set_ylim(-0.02, 1.05)
-        ax.legend(fontsize=9)
+        ax.legend(fontsize=8)
 
-        # ── Bottom row: TLS population ──────────────────────────────────────────
         ax2 = axes[1, col]
         ax2.plot(t, res_L['P_e_t'], lw=2.2, color='C0', label='Lindblad')
         ax2.plot(t, res_S['P_e_t'], lw=2.2, color='C1', ls='--', label='Solomon')
-        ax2.set_xlabel('Time', fontsize=12)
-        ax2.set_ylabel('TLS $P_e$', fontsize=12)
+        ax2.set_xlabel('Time', fontsize=11)
+        ax2.set_ylabel('TLS $P_e$', fontsize=11)
         ax2.set_ylim(-0.02, 1.05)
-        ax2.legend(fontsize=9)
+        ax2.legend(fontsize=8)
 
-        max_diff = np.max(np.abs(res_L['P_e_q'] -
-                                 np.interp(t, res_S['t'], res_S['P_e_q'])))
-        print(f"  max|P_L - P_S| (qubit) = {max_diff:.4f}")
+        max_d = np.max(np.abs(res_L['P_e_q'] -
+                              np.interp(t, res_S['t'], res_S['P_e_q'])))
+        print(f"  max|P_L - P_S| = {max_d:.4f}")
 
     fig.suptitle(
         rf'Lindblad vs Solomon: weak $\to$ strong coupling  '
-        rf'($\Delta=0$, $n_{{th}}$={N_TH:.1f}, qubit ground / TLS excited)',
-        fontsize=14
+        rf'($\Delta=0$, $n_{{th}}$={N_TH:.1f}, '
+        rf'$T_2^q$={PARAMS["T2_q"]:.0f}, qubit ground / TLS excited)',
+        fontsize=13
     )
     plt.tight_layout()
     plt.savefig(f'../figures/single_trajectory/clean_comparison_{TAG}.png',

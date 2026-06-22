@@ -21,29 +21,32 @@ from tqdm import tqdm
 from qubit_tls.lindblad import evolve as lindblad_evolve
 from qubit_tls.solomon  import evolve as solomon_evolve
 from utils.metrics import ISE, max_diff, coherence_metrics, fit_biexp
-from utils.io import save
-from utils.physics import make_params, n_thermal_sweep
+from utils.io import save, save_sweep
+from utils.physics import make_params, n_thermal
 
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
 N_TH = 0.1
 
-# Build consistent params from physical timescales.
-# T2=None means no pure dephasing (T2 = 2*T1, Lindblad limit).
-# Set T2_q < 2*T1_q to add realistic pure dephasing.
 PARAMS = make_params(
     wq      = 1.0,
     wt      = 1.0,
-    gamma_q = 0.01,    # T1_q = 100
-    gamma_t = 0.005,   # T1_t = 200
-    T2_q    = None,    # None => T2 = 2*T1 (no pure dephasing)
-    T2_t    = None,    # None => T2 = 2*T1 (no pure dephasing)
+    gamma_q = 0.01,
+    gamma_t = 0.005,
+    T2_q    = None,
+    T2_t    = None,
     n_th_q  = N_TH,
     n_th_t  = N_TH,
 )
 FIXED = {k: PARAMS[k] for k in
          ["wq","wt","gamma_q","gamma_t","gamma_phi_q","gamma_phi_t",
           "n_th_q","n_th_t"]}
-# ──────────────────────────────────────────────────────────────────────────
+
+G_OVER_GAMMA = np.logspace(-2, 1.3, 40)
+G_VALUES     = G_OVER_GAMMA * FIXED["gamma_t"]
+T_END        = 800
+N_STEPS      = 800
+TAG          = f"nth{N_TH:.4f}"
+# ──────────────────────────────────────────────────────────────────────────────
 
 TAG = f"nth{N_TH:.4f}"
 
