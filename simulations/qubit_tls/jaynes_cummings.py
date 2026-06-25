@@ -111,6 +111,24 @@ def initial_state(qubit: str = 'e', n_photons: int = 0,
     return qt.ket2dm(psi0)
 
 
+def n_ss_analytic(g: float, Omega: float, gamma: float, kappa: float) -> float:
+    """
+    Steady-state intracavity photon number for qubit-mediated coherent drive.
+
+    Derived from linear response (equations of motion at resonance):
+        <a>_ss = ig*Omega/2 / (g^2 + gamma*kappa/4)
+        <n>_ss = |<a>_ss|^2
+
+    Result:
+        <n>_ss = g^2*Omega^2 / (4*(g^2 + gamma*kappa/4)^2)
+
+    Limits:
+        Strong coupling (g >> sqrt(gamma*kappa)/2):  <n> ~ Omega^2/(4*g^2)
+        Bad cavity    (g << sqrt(gamma*kappa)/2):    <n> ~ g^2*Omega^2/(gamma*kappa)^2/4
+    """
+    return g**2 * Omega**2 / (4 * (g**2 + gamma * kappa / 4)**2)
+
+
 def purcell_rate(g: float, kappa: float, delta: float = 0.0) -> float:
     """
     Analytic Purcell decay rate in the bad-cavity limit (kappa >> g).
