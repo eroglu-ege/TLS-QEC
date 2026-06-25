@@ -86,7 +86,7 @@ def run():
         P_e_q     = (np.array(result.expect[0]) + 1) / 2
         n_photons = np.array(result.expect[1])
         n_ss      = np.mean(n_photons[int(0.9*N_STEPS):])
-        n_ss_an   = Omega**2 / (KAPPA*(GAMMA+KAPPA))
+        n_ss_an   = G**2 * Omega**2 / (4*(G**2 + GAMMA*KAPPA/4)**2)
         ss_photons.append(n_ss)
 
         if n_photons.max() > 0.8*N_MAX:
@@ -104,7 +104,7 @@ def run():
 
     # Analytic saturation curve
     Om_range = np.linspace(0.001, 0.15, 300)
-    ax4.plot(Om_range, Om_range**2/(KAPPA*(GAMMA+KAPPA)),
+    ax4.plot(Om_range, G**2*Om_range**2/(4*(G**2+GAMMA*KAPPA/4)**2),
              'k-', lw=2, label='Analytic')
     ax4.plot(OMEGA_VALUES, ss_photons, 'ro', ms=10, label='Simulation')
     ax4.set_xlabel('Drive $\\Omega$', fontsize=12)
